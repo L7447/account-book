@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>記帳 App - 修正版</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --text-sec: #94a3b8;
+      --accent: #3b82f6;
+      --danger: #ef4444;
+      --success: #10b981;
+      --border: #334155;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+    #page-title {
+      padding: 12px 16px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0;
+      z-index: 100;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: var(--text-sec);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 4px 12px;
+    }
+    .nav-item.active {
+      color: var(--accent);
+    }
+    .nav-icon {
+      font-size: 1.8rem;
+      margin-bottom: 2px;
+    }
+    .fab {
+      position: fixed;
+      bottom: 96px;
+      right: 24px;
+      width: 64px;
+      height: 64px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.4rem;
+      color: white;
+      box-shadow: 0 6px 16px rgba(59,130,246,0.5);
+      cursor: pointer;
+      z-index: 99;
+    }
+    .fab:hover { transform: scale(1.1); }
+    .page {
+      display: none;
+      padding: 16px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .page.active { display: block; }
+    h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+
+<!-- 頁面標題 -->
+<div id="page-title" style="padding:12px 16px; background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; font-size:1.1rem; font-weight:600; text-align:center;">
+  記帳
+</div>
+
+<!-- 首頁 -->
+<div id="home" class="page active">
+  <div style="text-align:center; margin:32px 0 40px;">
+    <div style="color:var(--text-sec); font-size:1.1rem;">總資產 (TWD)</div>
+    <div id="total-asset" style="font-size:3.2rem; font-weight:bold; color:var(--success);">7,571.68</div>
+  </div>
+  <canvas id="assetTrend" height="160"></canvas>
+</div>
+
+<!-- 記錄頁 -->
+<div id="record" class="page">
+  <h2>新增記錄</h2>
+
+  <div class="form-group">
+    <label>日期與時間</label>
+    <input type="datetime-local" id="datetime">
+  </div>
+
+  <div class="form-group">
+    <label>支付方式</label>
+    <div class="quick-tags" id="payment-quick"></div>
+    <select id="payment-account">
+      <option value="">請選擇帳戶</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label>商家 / 地點</label>
+    <input type="text" id="merchant" placeholder="例如：7-11、萊爾富...">
+  </div>
+
+  <div class="form-group">
+    <label>明細項目</label>
+    <div id="items-list"></div>
+    <div id="add-item" style="background:rgba(59,130,246,0.15); color:var(--accent); border:1px dashed var(--accent); padding:12px; border-radius:8px; text-align:center; cursor:pointer; margin:16px 0;">
+      + 新增一項
+    </div>
+  </div>
+
+  <div class="total" id="total-amount">0</div>
+
+  <div class="form-group">
+    <label>備註</label>
+    <textarea id="note" placeholder="可輸入標籤 #宵夜 #促銷"></textarea>
+  </div>
+
+  <button id="save-record" style="width:100%; padding:14px; background:var(--success); color:white; border:none; border-radius:10px; font-size:1.1rem; font-weight:600;">
+    儲存記錄
+  </button>
+</div>
+
+<!-- 日曆頁 -->
+<div id="calendar" class="page">
+  <h2>日曆</h2>
+  <div style="text-align:center; margin:16px 0;">
+    <button onclick="prevMonth()">◀</button>
+    <span id="current-month" style="font-size:1.3rem; margin:0 20px;"></span>
+    <button onclick="nextMonth()">▶</button>
+  </div>
+  <div class="calendar-grid" id="calendar-days"></div>
+
+  <h3 style="margin:24px 0 12px;">選擇日期的記錄</h3>
+  <div id="daily-records"></div>
+</div>
+
+<!-- 報表頁 -->
+<div id="report" class="page">
+  <h2>2026/02 月報表</h2>
+  <div style="position:relative; height:240px; margin:24px 0;">
+    <canvas id="categoryPie"></canvas>
+  </div>
+  <div style="margin-top:32px;">
+    <h3>TOP 3 商家</h3>
+    <div style="background:var(--card); padding:12px 16px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; font-weight:500;">
+      7-11 <span style="color:var(--danger);">$1,973</span>
+    </div>
+    <div style="background:var(--card); padding:12px 16px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; font-weight:500;">
+      萊爾富 <span style="color:var(--danger);">$1,374</span>
+    </div>
+    <div style="background:var(--card); padding:12px 16px; border-radius:10px; display:flex; justify-content:space-between; font-weight:500;">
+      全國加油站 <span style="color:var(--danger);">$421</span>
+    </div>
+  </div>
+</div>
+
+<!-- 設定頁 -->
+<div id="settings" class="page">
+  <h2>設定</h2>
+  <div class="setting-section">
+    <div class="setting-item" onclick="showPage('categories')">
+      <div class="icon">🏷️</div>
+      <div class="content">
+        <div class="title">分類管理</div>
+        <div class="desc">新增、編輯支出/收入分類與圖示</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+    <div class="setting-item" onclick="showPage('accounts')">
+      <div class="icon">💳</div>
+      <div class="content">
+        <div class="title">帳戶管理</div>
+        <div class="desc">管理錢包、銀行、電子支付與餘額</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+    <div class="setting-item">
+      <div class="icon">🎨</div>
+      <div class="content">
+        <div class="title">主題</div>
+        <div class="desc">目前：深色模式</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+    <div class="setting-item">
+      <div class="icon">📤</div>
+      <div class="content">
+        <div class="title">資料匯出 / 匯入</div>
+        <div class="desc">備份或還原所有記錄</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部導航 -->
+<div class="bottom-nav">
+  <div class="nav-item active" data-page="home">
+    <div class="nav-icon">🏠</div>
+    <div>首頁</div>
+  </div>
+  <div class="nav-item" data-page="record">
+    <div class="nav-icon">📝</div>
+    <div>記錄</div>
+  </div>
+  <div class="nav-item" data-page="calendar">
+    <div class="nav-icon">📅</div>
+    <div>日曆</div>
+  </div>
+  <div class="nav-item" data-page="report">
+    <div class="nav-icon">📊</div>
+    <div>報表</div>
+  </div>
+  <div class="nav-item" data-page="settings">
+    <div class="nav-icon">⚙️</div>
+    <div>設定</div>
+  </div>
+</div>
+
+<!-- 浮動 + 按鈕 -->
+<div class="fab" onclick="showPage('record')">+</div>
+
+<script>
+  // 頁面切換函數
+  function showPage(pageId) {
+    console.log('切換到頁面：' + pageId); // 方便除錯
+
+    // 移除所有 active
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+
+    // 啟用目標頁面
+    const page = document.getElementById(pageId);
+    if (page) page.classList.add('active');
+
+    // 導航列高亮
+    const nav = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+    if (nav) nav.classList.add('active');
+
+    // 更新標題
+    document.getElementById('page-title').textContent = {
+      'home': '記帳',
+      'record': '新增記錄',
+      'calendar': '日曆',
+      'report': '報表',
+      'settings': '設定'
+    }[pageId] || '記帳';
+  }
+
+  // 綁定底部導航點擊事件
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      showPage(item.dataset.page);
+    });
+  });
+
+  // 初始載入首頁
+  showPage('home');
+</script>
+</body>
+</html>
